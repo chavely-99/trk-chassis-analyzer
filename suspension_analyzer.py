@@ -8,10 +8,38 @@ import plotly.express as px
 
 st.set_page_config(
     page_title="TRK Chassis Analyzer",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
-st.title("TRK Chassis Analyzer")
+# Reduce top padding and margins
+st.markdown("""
+    <style>
+        .block-container {
+            padding-top: 1rem;
+            padding-bottom: 0rem;
+        }
+        header {
+            visibility: hidden;
+        }
+        #MainMenu {
+            visibility: hidden;
+        }
+        footer {
+            visibility: hidden;
+        }
+        /* Reduce whitespace around plotly charts */
+        .js-plotly-plot, .plot-container {
+            margin-top: -0.5rem !important;
+        }
+        div[data-testid="stPlotlyChart"] {
+            margin-top: -0.5rem !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+st.markdown("# TRK Chassis Analyzer")
+st.markdown("")
 
 # Initialize variables
 uploaded_file = None
@@ -360,7 +388,7 @@ with config_tab:
             # Normalize LCA Z Heights option
             normalize_lca_z = st.checkbox(
                 "Normalize LCA Z Heights",
-                value=False,
+                value=True,
                 help="Set all lower control arm Z heights to the median value for more realistic damper travel calculations"
             )
 
@@ -1168,8 +1196,6 @@ with analysis_tab:
                 )
 
         with scatter_tab:
-            st.subheader("Damper Length Correlation Analysis")
-            st.caption("Visualize how damper lengths correlate across configurations")
 
             # View mode toggle and filters
             control_cols = st.columns([1.5, 2, 1.5])
@@ -1225,46 +1251,77 @@ with analysis_tab:
                     st.markdown("**Info:**")
                     st.caption("🔵 Clips are colored, center sections use different shapes")
             else:
-                # Center Section View - add clip filter
+                # Center Section View - add clip filter with toggles
+                # Initialize clip visibility in session state
+                if 'visible_front_clips' not in st.session_state:
+                    st.session_state['visible_front_clips'] = set(all_front_clips if using_multi_sheet else all_clips)
+                if 'visible_rear_clips' not in st.session_state and using_multi_sheet:
+                    st.session_state['visible_rear_clips'] = set(all_rear_clips)
+
                 with control_cols[1]:
                     if using_multi_sheet:
-                        st.markdown("**Filter Front Clips:**")
-                        exclude_front_clips = st.multiselect(
-                            "Exclude Front Clips",
-                            options=all_front_clips,
-                            default=[],
-                            key='scatter_exclude_front_clips',
-                            help="Select clips to hide from the scatter plot"
-                        )
+                        with st.expander("Front Clips", expanded=False):
+                            # Create columns for compact layout
+                            num_clips = len(all_front_clips)
+                            num_cols = min(3, num_clips)
+                            clip_cols = st.columns(num_cols)
+
+                            for idx, clip in enumerate(all_front_clips):
+                                col_idx = idx % num_cols
+                                with clip_cols[col_idx]:
+                                    is_visible = clip in st.session_state['visible_front_clips']
+                                    toggled = st.checkbox(clip, value=is_visible, key=f'front_clip_toggle_{clip}')
+                                    if toggled and clip not in st.session_state['visible_front_clips']:
+                                        st.session_state['visible_front_clips'].add(clip)
+                                    elif not toggled and clip in st.session_state['visible_front_clips']:
+                                        st.session_state['visible_front_clips'].discard(clip)
                     else:
-                        st.markdown("**Filter Clips:**")
-                        exclude_clips = st.multiselect(
-                            "Exclude Clips",
-                            options=all_clips,
-                            default=[],
-                            key='scatter_exclude_clips',
-                            help="Select clips to hide from the scatter plot"
-                        )
+                        with st.expander("Clips", expanded=False):
+                            num_clips = len(all_clips)
+                            num_cols = min(3, num_clips)
+                            clip_cols = st.columns(num_cols)
+
+                            for idx, clip in enumerate(all_clips):
+                                col_idx = idx % num_cols
+                                with clip_cols[col_idx]:
+                                    is_visible = clip in st.session_state['visible_front_clips']
+                                    toggled = st.checkbox(clip, value=is_visible, key=f'clip_toggle_{clip}')
+                                    if toggled and clip not in st.session_state['visible_front_clips']:
+                                        st.session_state['visible_front_clips'].add(clip)
+                                    elif not toggled and clip in st.session_state['visible_front_clips']:
+                                        st.session_state['visible_front_clips'].discard(clip)
+
                 with control_cols[2]:
                     if using_multi_sheet:
-                        st.markdown("**Filter Rear Clips:**")
-                        exclude_rear_clips = st.multiselect(
-                            "Exclude Rear Clips",
-                            options=all_rear_clips,
-                            default=[],
-                            key='scatter_exclude_rear_clips',
-                            help="Select clips to hide from the scatter plot"
-                        )
+                        with st.expander("Rear Clips", expanded=False):
+                            num_clips = len(all_rear_clips)
+                            num_cols = min(3, num_clips)
+                            clip_cols = st.columns(num_cols)
+
+                            for idx, clip in enumerate(all_rear_clips):
+                                col_idx = idx % num_cols
+                                with clip_cols[col_idx]:
+                                    is_visible = clip in st.session_state['visible_rear_clips']
+                                    toggled = st.checkbox(clip, value=is_visible, key=f'rear_clip_toggle_{clip}')
+                                    if toggled and clip not in st.session_state['visible_rear_clips']:
+                                        st.session_state['visible_rear_clips'].add(clip)
+                                    elif not toggled and clip in st.session_state['visible_rear_clips']:
+                                        st.session_state['visible_rear_clips'].discard(clip)
                     else:
                         st.markdown("")
 
-            st.markdown("---")
+                # Convert to exclude lists for compatibility with existing code
+                if using_multi_sheet:
+                    exclude_front_clips = [c for c in all_front_clips if c not in st.session_state['visible_front_clips']]
+                    exclude_rear_clips = [c for c in all_rear_clips if c not in st.session_state['visible_rear_clips']]
+                else:
+                    exclude_clips = [c for c in all_clips if c not in st.session_state['visible_front_clips']]
 
             # Create two columns for front and rear scatter plots
             scatter_col1, scatter_col2 = st.columns(2)
 
             with scatter_col1:
-                st.markdown("### Front: LF vs RF Damper Length")
+                st.markdown("<p style='margin-bottom: 0.5rem;'><strong>LF vs RF Damper Length</strong></p>", unsafe_allow_html=True)
 
                 # Create scatter plot
                 fig_front = go.Figure()
@@ -1373,10 +1430,9 @@ with analysis_tab:
                 if using_multi_sheet:
                     corr = scatter_data['LF_Damper_Length'].corr(scatter_data['RF_Damper_Length'])
                     st.metric("LF-RF Correlation", f"{corr:.3f}")
-                    st.caption("Positive correlation indicates LF and RF lengths tend to increase/decrease together")
 
             with scatter_col2:
-                st.markdown("### Rear: LR vs RR Damper Length")
+                st.markdown("<p style='margin-bottom: 0.5rem;'><strong>LR vs RR Damper Length</strong></p>", unsafe_allow_html=True)
 
                 # Create scatter plot
                 fig_rear = go.Figure()
@@ -1483,7 +1539,6 @@ with analysis_tab:
                 if using_multi_sheet:
                     corr_rear = scatter_data_rear['LR_Damper_Length'].corr(scatter_data_rear['RR_Damper_Length'])
                     st.metric("LR-RR Correlation", f"{corr_rear:.3f}")
-                    st.caption("Positive correlation indicates LR and RR lengths tend to increase/decrease together")
 
         # Download button and detailed view at bottom of reports tab
         st.markdown("---")
@@ -1500,8 +1555,6 @@ with analysis_tab:
 
         # Selector Tab
         with selector_tab:
-            st.subheader("Lineup Builder")
-            st.caption("Assign front and rear clips to each center section and view complete lineup rankings")
 
             # Get unique values
             all_center_sections = sorted(results_df[center_section_col].unique())
@@ -1672,6 +1725,18 @@ with analysis_tab:
 
                 st.markdown("")
 
+                # Initialize manual order flag
+                if 'manual_order_mode' not in st.session_state:
+                    st.session_state['manual_order_mode'] = False
+
+                # When Calculate is pressed, reset to sorted mode
+                if 'last_calculate_time' not in st.session_state:
+                    st.session_state['last_calculate_time'] = 0
+
+                if calculate_button:
+                    st.session_state['manual_order_mode'] = False
+                    st.session_state['last_calculate_time'] += 1
+
                 # Create table header
                 header_cols = st.columns([1.5, 2.5, 2.5, 2.5, 1, 1, 1, 1, 1.2, 1.2])
                 header_cols[0].markdown("**Track**")
@@ -1690,56 +1755,48 @@ with analysis_tab:
                 # Build results as we go through each center section
                 lineup_results = []
 
-                # Check for duplicate clip assignments
-                front_clip_usage = {}
-                rear_clip_usage = {}
-                for center in all_center_sections:
-                    front_clip = st.session_state['lineup_assignments'][center]['front_clip']
-                    rear_clip = st.session_state['lineup_assignments'][center]['rear_clip']
+                # Determine sort order
+                if st.session_state['manual_order_mode']:
+                    # Keep the original sorted order
+                    sorted_centers = sorted(all_center_sections)
+                else:
+                    # Calculate weighted scores for each center section to sort them
+                    center_scores = []
+                    for center in all_center_sections:
+                        front_clip = st.session_state['lineup_assignments'][center]['front_clip']
+                        rear_clip = st.session_state['lineup_assignments'][center]['rear_clip']
 
-                    if front_clip not in front_clip_usage:
-                        front_clip_usage[front_clip] = []
-                    front_clip_usage[front_clip].append(center)
+                        # Get front and rear data
+                        front_mask = (df_front_calc_ranks[center_section_col] == center) & (df_front_calc_ranks[clip_col] == front_clip)
+                        front_row = df_front_calc_ranks[front_mask]
 
-                    if rear_clip not in rear_clip_usage:
-                        rear_clip_usage[rear_clip] = []
-                    rear_clip_usage[rear_clip].append(center)
+                        rear_mask = (df_rear_calc_ranks[center_section_col] == center) & (df_rear_calc_ranks[clip_col] == rear_clip)
+                        rear_row = df_rear_calc_ranks[rear_mask]
 
-                # Calculate weighted scores for each center section to sort them
-                center_scores = []
-                for center in all_center_sections:
-                    front_clip = st.session_state['lineup_assignments'][center]['front_clip']
-                    rear_clip = st.session_state['lineup_assignments'][center]['rear_clip']
+                        if len(front_row) > 0 and len(rear_row) > 0:
+                            front_data = front_row.iloc[0]
+                            rear_data = rear_row.iloc[0]
 
-                    # Get front and rear data
-                    front_mask = (df_front_calc_ranks[center_section_col] == center) & (df_front_calc_ranks[clip_col] == front_clip)
-                    front_row = df_front_calc_ranks[front_mask]
+                            # Calculate weighted score using current corner weights
+                            lf_weight = st.session_state['corner_weights']['LF'] / 100
+                            rf_weight = st.session_state['corner_weights']['RF'] / 100
+                            lr_weight = st.session_state['corner_weights']['LR'] / 100
+                            rr_weight = st.session_state['corner_weights']['RR'] / 100
 
-                    rear_mask = (df_rear_calc_ranks[center_section_col] == center) & (df_rear_calc_ranks[clip_col] == rear_clip)
-                    rear_row = df_rear_calc_ranks[rear_mask]
+                            weighted_score = (front_data['LF_Rank'] * lf_weight) + \
+                                           (front_data['RF_Rank'] * rf_weight) + \
+                                           (rear_data['LR_Rank'] * lr_weight) + \
+                                           (rear_data['RR_Rank'] * rr_weight)
 
-                    if len(front_row) > 0 and len(rear_row) > 0:
-                        front_data = front_row.iloc[0]
-                        rear_data = rear_row.iloc[0]
+                            center_scores.append((center, weighted_score))
+                        else:
+                            center_scores.append((center, float('inf')))
 
-                        # Calculate weighted score using current corner weights
-                        lf_weight = st.session_state['corner_weights']['LF'] / 100
-                        rf_weight = st.session_state['corner_weights']['RF'] / 100
-                        lr_weight = st.session_state['corner_weights']['LR'] / 100
-                        rr_weight = st.session_state['corner_weights']['RR'] / 100
+                    # Sort center sections by weighted score (best first)
+                    sorted_centers = [center for center, score in sorted(center_scores, key=lambda x: x[1])]
 
-                        weighted_score = (front_data['LF_Rank'] * lf_weight) + \
-                                       (front_data['RF_Rank'] * rf_weight) + \
-                                       (rear_data['LR_Rank'] * lr_weight) + \
-                                       (rear_data['RR_Rank'] * rr_weight)
-
-                        center_scores.append((center, weighted_score))
-                    else:
-                        center_scores.append((center, float('inf')))
-
-                # Sort center sections by weighted score (best first)
-                sorted_centers = [center for center, score in sorted(center_scores, key=lambda x: x[1])]
-
+                # Render the table - collect current selections and update session state
+                current_selections = {}
                 for center in sorted_centers:
                     # Create row columns
                     row_cols = st.columns([1.5, 2.5, 2.5, 2.5, 1, 1, 1, 1, 1.2, 1.2])
@@ -1763,10 +1820,6 @@ with analysis_tab:
                     selected_front = st.session_state['lineup_assignments'][center]['front_clip']
                     selected_rear = st.session_state['lineup_assignments'][center]['rear_clip']
 
-                    # Check if this clip is used by multiple center sections (duplicate)
-                    is_front_duplicate = len(front_clip_usage.get(selected_front, [])) > 1
-                    is_rear_duplicate = len(rear_clip_usage.get(selected_rear, [])) > 1
-
                     # Front clip selector
                     with row_cols[2]:
                         selected_front_new = st.selectbox(
@@ -1776,12 +1829,10 @@ with analysis_tab:
                             key=f'lineup_front_{center}',
                             label_visibility='collapsed'
                         )
+                        # Detect if user made a change
+                        if selected_front_new != selected_front:
+                            st.session_state['manual_order_mode'] = True
                         st.session_state['lineup_assignments'][center]['front_clip'] = selected_front_new
-                        selected_front = selected_front_new
-
-                        # Show warning if duplicate
-                        if is_front_duplicate:
-                            st.markdown(f"<span style='color: red; font-size: 12px;'>⚠️ Duplicate!</span>", unsafe_allow_html=True)
 
                     # Rear clip selector
                     with row_cols[3]:
@@ -1792,18 +1843,23 @@ with analysis_tab:
                             key=f'lineup_rear_{center}',
                             label_visibility='collapsed'
                         )
+                        # Detect if user made a change
+                        if selected_rear_new != selected_rear:
+                            st.session_state['manual_order_mode'] = True
                         st.session_state['lineup_assignments'][center]['rear_clip'] = selected_rear_new
-                        selected_rear = selected_rear_new
 
-                        # Show warning if duplicate
-                        if is_rear_duplicate:
-                            st.markdown(f"<span style='color: red; font-size: 12px;'>⚠️ Duplicate!</span>", unsafe_allow_html=True)
+                    # Store current selections for this center
+                    current_selections[center] = {
+                        'front': selected_front_new,
+                        'rear': selected_rear_new,
+                        'row_cols': row_cols
+                    }
 
                     # Get data for selected clips
-                    front_mask = (df_front_calc_ranks[center_section_col] == center) & (df_front_calc_ranks[clip_col] == selected_front)
+                    front_mask = (df_front_calc_ranks[center_section_col] == center) & (df_front_calc_ranks[clip_col] == selected_front_new)
                     front_row = df_front_calc_ranks[front_mask]
 
-                    rear_mask = (df_rear_calc_ranks[center_section_col] == center) & (df_rear_calc_ranks[clip_col] == selected_rear)
+                    rear_mask = (df_rear_calc_ranks[center_section_col] == center) & (df_rear_calc_ranks[clip_col] == selected_rear_new)
                     rear_row = df_rear_calc_ranks[rear_mask]
 
                     # Display rankings
@@ -1821,8 +1877,8 @@ with analysis_tab:
                         # Store for summary
                         lineup_results.append({
                             'Center_Section': center,
-                            'Front_Clip': selected_front,
-                            'Rear_Clip': selected_rear,
+                            'Front_Clip': selected_front_new,
+                            'Rear_Clip': selected_rear_new,
                             'LF_Rank': int(front_data['LF_Rank']),
                             'RF_Rank': int(front_data['RF_Rank']),
                             'LR_Rank': int(rear_data['LR_Rank']),
@@ -1844,25 +1900,40 @@ with analysis_tab:
                         row_cols[8].write("—")
                         row_cols[9].write("—")
 
+                # After all selectboxes have rendered, detect duplicates and show warnings
+                front_clip_usage = {}
+                rear_clip_usage = {}
+                for center, selection in current_selections.items():
+                    front_clip = selection['front']
+                    rear_clip = selection['rear']
+
+                    if front_clip not in front_clip_usage:
+                        front_clip_usage[front_clip] = []
+                    front_clip_usage[front_clip].append(center)
+
+                    if rear_clip not in rear_clip_usage:
+                        rear_clip_usage[rear_clip] = []
+                    rear_clip_usage[rear_clip].append(center)
+
+                # Display duplicate warnings below the selectboxes
+                for center in sorted_centers:
+                    selection = current_selections[center]
+                    row_cols = selection['row_cols']
+
+                    is_front_duplicate = len(front_clip_usage.get(selection['front'], [])) > 1
+                    is_rear_duplicate = len(rear_clip_usage.get(selection['rear'], [])) > 1
+
+                    with row_cols[2]:
+                        if is_front_duplicate:
+                            st.markdown("<span style='color: red; font-size: 11px;'>⚠️ Duplicate</span>", unsafe_allow_html=True)
+
+                    with row_cols[3]:
+                        if is_rear_duplicate:
+                            st.markdown("<span style='color: red; font-size: 11px;'>⚠️ Duplicate</span>", unsafe_allow_html=True)
+
                 lineup_df = pd.DataFrame(lineup_results)
 
                 if len(lineup_df) > 0:
-                    # Check for duplicates and display warning
-                    duplicate_front_clips = [clip for clip, centers in front_clip_usage.items() if len(centers) > 1]
-                    duplicate_rear_clips = [clip for clip, centers in rear_clip_usage.items() if len(centers) > 1]
-
-                    if duplicate_front_clips or duplicate_rear_clips:
-                        st.markdown("")
-                        st.error("⚠️ Duplicate clips detected")
-                        if duplicate_front_clips:
-                            for clip in duplicate_front_clips:
-                                centers = ', '.join(front_clip_usage[clip])
-                                st.markdown(f"Front: `{clip}` → {centers}")
-                        if duplicate_rear_clips:
-                            for clip in duplicate_rear_clips:
-                                centers = ', '.join(rear_clip_usage[clip])
-                                st.markdown(f"Rear: `{clip}` → {centers}")
-
                     # Fleet Overview Summary
                     st.markdown("")
                     st.markdown("---")
@@ -1892,8 +1963,6 @@ with analysis_tab:
 
         # Attribute Compare Tab
         with attribute_tab:
-            st.subheader("Attribute Compare")
-            st.caption("Analyze how assembly variables correlate with damper lengths")
 
             # Get configuration from session state
             config = st.session_state.get('config', {})
@@ -2043,8 +2112,6 @@ with analysis_tab:
 
         # 3D Visualizer Tab
         with visualizer_tab:
-            st.subheader("3D Assembly Visualizer")
-            st.caption("Select a combination to view its 3D geometry")
 
             # Combination selector
             if using_multi_sheet:
