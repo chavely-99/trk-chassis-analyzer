@@ -1849,7 +1849,7 @@ with analysis_tab:
 
                 # Calculate dynamic height based on number of rows (35px per row + 38px header)
                 num_rows = len(df_front_table)
-                table_height = min(35 * num_rows + 38, 600)  # Cap at 600px max
+                table_height = min(35 * num_rows + 38, 400)  # Cap at 400px max for compactness
 
                 # Detect duplicates
                 front_clip_counts = df_front_table['Front_Clip'].value_counts()
@@ -1997,6 +1997,110 @@ with analysis_tab:
                     if rear_duplicates:
                         warning_parts.append(f"Rear: {', '.join(rear_duplicates)}")
                     st.warning(f"⚠️ Duplicate clips detected - {' | '.join(warning_parts)}")
+
+                # "What If" Calculator Section
+                st.markdown("---")
+
+                # Center section selector for What If analysis
+                whatif_center = st.selectbox(
+                    "What If Analysis - Select Center Section:",
+                    options=sorted_centers,
+                    key='whatif_center_selector'
+                )
+
+                # Get current assignments for the selected center
+                current_front_clip = st.session_state['lineup_assignments'][whatif_center]['front_clip']
+                current_rear_clip = st.session_state['lineup_assignments'][whatif_center]['rear_clip']
+
+                # Get current damper lengths
+                current_front_mask = (df_front_calc_ranks[center_section_col] == whatif_center) & \
+                                    (df_front_calc_ranks[clip_col] == current_front_clip)
+                current_front_data = df_front_calc_ranks[current_front_mask].iloc[0]
+                current_lf_length = current_front_data['LF_Damper_Length']
+                current_rf_length = current_front_data['RF_Damper_Length']
+
+                current_rear_mask = (df_rear_calc_ranks[center_section_col] == whatif_center) & \
+                                   (df_rear_calc_ranks[clip_col] == current_rear_clip)
+                current_rear_data = df_rear_calc_ranks[current_rear_mask].iloc[0]
+                current_lr_length = current_rear_data['LR_Damper_Length']
+                current_rr_length = current_rear_data['RR_Damper_Length']
+
+                # Build What If tables
+                whatif_cols = st.columns([1, 1])
+
+                # Front What If Table
+                with whatif_cols[0]:
+                    st.markdown(f"**Front Clips** (Current: {current_front_clip})")
+
+                    front_whatif_data = []
+                    for clip in all_front_clips:
+                        clip_mask = (df_front_calc_ranks[center_section_col] == whatif_center) & \
+                                   (df_front_calc_ranks[clip_col] == clip)
+                        clip_data = df_front_calc_ranks[clip_mask]
+
+                        if len(clip_data) > 0:
+                            clip_row = clip_data.iloc[0]
+                            lf_delta = clip_row['LF_Damper_Length'] - current_lf_length
+                            rf_delta = clip_row['RF_Damper_Length'] - current_rf_length
+
+                            # Add color indicator
+                            lf_indicator = "🟢" if lf_delta > 0 else ("🔴" if lf_delta < 0 else "⚪")
+                            rf_indicator = "🟢" if rf_delta > 0 else ("🔴" if rf_delta < 0 else "⚪")
+
+                            front_whatif_data.append({
+                                'Clip': clip,
+                                'LF Δ': f"{lf_indicator} {lf_delta:+.3f}",
+                                'RF Δ': f"{rf_indicator} {rf_delta:+.3f}"
+                            })
+
+                    df_front_whatif = pd.DataFrame(front_whatif_data)
+
+                    # Calculate height to show all rows without scrolling
+                    whatif_height = 35 * len(df_front_whatif) + 38
+
+                    st.dataframe(
+                        df_front_whatif,
+                        use_container_width=True,
+                        height=whatif_height,
+                        hide_index=True
+                    )
+
+                # Rear What If Table
+                with whatif_cols[1]:
+                    st.markdown(f"**Rear Clips** (Current: {current_rear_clip})")
+
+                    rear_whatif_data = []
+                    for clip in all_rear_clips:
+                        clip_mask = (df_rear_calc_ranks[center_section_col] == whatif_center) & \
+                                   (df_rear_calc_ranks[clip_col] == clip)
+                        clip_data = df_rear_calc_ranks[clip_mask]
+
+                        if len(clip_data) > 0:
+                            clip_row = clip_data.iloc[0]
+                            lr_delta = clip_row['LR_Damper_Length'] - current_lr_length
+                            rr_delta = clip_row['RR_Damper_Length'] - current_rr_length
+
+                            # Add color indicator
+                            lr_indicator = "🟢" if lr_delta > 0 else ("🔴" if lr_delta < 0 else "⚪")
+                            rr_indicator = "🟢" if rr_delta > 0 else ("🔴" if rr_delta < 0 else "⚪")
+
+                            rear_whatif_data.append({
+                                'Clip': clip,
+                                'LR Δ': f"{lr_indicator} {lr_delta:+.3f}",
+                                'RR Δ': f"{rr_indicator} {rr_delta:+.3f}"
+                            })
+
+                    df_rear_whatif = pd.DataFrame(rear_whatif_data)
+
+                    # Calculate height to show all rows without scrolling
+                    whatif_rear_height = 35 * len(df_rear_whatif) + 38
+
+                    st.dataframe(
+                        df_rear_whatif,
+                        use_container_width=True,
+                        height=whatif_rear_height,
+                        hide_index=True
+                    )
 
                 lineup_df = pd.DataFrame(lineup_results)
 
