@@ -1737,21 +1737,6 @@ with analysis_tab:
                     st.session_state['manual_order_mode'] = False
                     st.session_state['last_calculate_time'] += 1
 
-                # Create table header
-                header_cols = st.columns([1.5, 2.5, 2.5, 2.5, 1, 1, 1, 1, 1.2, 1.2])
-                header_cols[0].markdown("**Track**")
-                header_cols[1].markdown("**Center Section**")
-                header_cols[2].markdown("**Front Clip**")
-                header_cols[3].markdown("**Rear Clip**")
-                header_cols[4].markdown("**LF**")
-                header_cols[5].markdown("**RF**")
-                header_cols[6].markdown("**LR**")
-                header_cols[7].markdown("**RR**")
-                header_cols[8].markdown("**Front**")
-                header_cols[9].markdown("**Rear**")
-
-                st.markdown("---")
-
                 # Build results as we go through each center section
                 lineup_results = []
 
@@ -1795,90 +1780,55 @@ with analysis_tab:
                     # Sort center sections by weighted score (best first)
                     sorted_centers = [center for center, score in sorted(center_scores, key=lambda x: x[1])]
 
-                # Render the table - collect current selections and update session state
-                current_selections = {}
+                # Create two side-by-side tables
+                table_cols = st.columns([1, 1])
+
+                # Build data for both tables
+                front_table_data = []
+                rear_table_data = []
+
                 for center in sorted_centers:
-                    # Create row columns
-                    row_cols = st.columns([1.5, 2.5, 2.5, 2.5, 1, 1, 1, 1, 1.2, 1.2])
-
-                    # Track type selector
-                    track_types = ['INT', 'ST', 'RC', 'Utility', 'SSW', 'Backup']
-                    with row_cols[0]:
-                        track_type = st.selectbox(
-                            "Track Type",
-                            options=track_types,
-                            index=track_types.index(st.session_state['track_types'][center]),
-                            key=f'track_type_{center}',
-                            label_visibility='collapsed'
-                        )
-                        st.session_state['track_types'][center] = track_type
-
-                    # Center section name
-                    row_cols[1].write(center)
-
-                    # Get current assignments
                     selected_front = st.session_state['lineup_assignments'][center]['front_clip']
                     selected_rear = st.session_state['lineup_assignments'][center]['rear_clip']
 
-                    # Front clip selector
-                    with row_cols[2]:
-                        selected_front_new = st.selectbox(
-                            "Front Clip",
-                            options=all_front_clips,
-                            index=all_front_clips.index(selected_front),
-                            key=f'lineup_front_{center}',
-                            label_visibility='collapsed'
-                        )
-                        # Detect if user made a change
-                        if selected_front_new != selected_front:
-                            st.session_state['manual_order_mode'] = True
-                        st.session_state['lineup_assignments'][center]['front_clip'] = selected_front_new
-
-                    # Rear clip selector
-                    with row_cols[3]:
-                        selected_rear_new = st.selectbox(
-                            "Rear Clip",
-                            options=all_rear_clips,
-                            index=all_rear_clips.index(selected_rear),
-                            key=f'lineup_rear_{center}',
-                            label_visibility='collapsed'
-                        )
-                        # Detect if user made a change
-                        if selected_rear_new != selected_rear:
-                            st.session_state['manual_order_mode'] = True
-                        st.session_state['lineup_assignments'][center]['rear_clip'] = selected_rear_new
-
-                    # Store current selections for this center
-                    current_selections[center] = {
-                        'front': selected_front_new,
-                        'rear': selected_rear_new,
-                        'row_cols': row_cols
-                    }
-
-                    # Get data for selected clips
-                    front_mask = (df_front_calc_ranks[center_section_col] == center) & (df_front_calc_ranks[clip_col] == selected_front_new)
+                    # Get front data
+                    front_mask = (df_front_calc_ranks[center_section_col] == center) & (df_front_calc_ranks[clip_col] == selected_front)
                     front_row = df_front_calc_ranks[front_mask]
 
-                    rear_mask = (df_rear_calc_ranks[center_section_col] == center) & (df_rear_calc_ranks[clip_col] == selected_rear_new)
+                    # Get rear data
+                    rear_mask = (df_rear_calc_ranks[center_section_col] == center) & (df_rear_calc_ranks[clip_col] == selected_rear)
                     rear_row = df_rear_calc_ranks[rear_mask]
 
-                    # Display rankings
                     if len(front_row) > 0 and len(rear_row) > 0:
                         front_data = front_row.iloc[0]
                         rear_data = rear_row.iloc[0]
 
-                        row_cols[4].write(f"#{int(front_data['LF_Rank'])}")
-                        row_cols[5].write(f"#{int(front_data['RF_Rank'])}")
-                        row_cols[6].write(f"#{int(rear_data['LR_Rank'])}")
-                        row_cols[7].write(f"#{int(rear_data['RR_Rank'])}")
-                        row_cols[8].write(f"**#{int(front_data['Front_Rank'])}**")
-                        row_cols[9].write(f"**#{int(rear_data['Rear_Rank'])}**")
+                        front_table_data.append({
+                            'Track_Type': st.session_state['track_types'][center],
+                            'Center_Section': center,
+                            'Front_Clip': selected_front,
+                            'LF_Length': front_data['LF_Damper_Length'],
+                            'RF_Length': front_data['RF_Damper_Length'],
+                            'LF_Rank': int(front_data['LF_Rank']),
+                            'RF_Rank': int(front_data['RF_Rank']),
+                            'Front_Rank': int(front_data['Front_Rank'])
+                        })
+
+                        rear_table_data.append({
+                            'Center_Section': center,
+                            'Rear_Clip': selected_rear,
+                            'LR_Length': rear_data['LR_Damper_Length'],
+                            'RR_Length': rear_data['RR_Damper_Length'],
+                            'LR_Rank': int(rear_data['LR_Rank']),
+                            'RR_Rank': int(rear_data['RR_Rank']),
+                            'Rear_Rank': int(rear_data['Rear_Rank'])
+                        })
 
                         # Store for summary
                         lineup_results.append({
                             'Center_Section': center,
-                            'Front_Clip': selected_front_new,
-                            'Rear_Clip': selected_rear_new,
+                            'Front_Clip': selected_front,
+                            'Rear_Clip': selected_rear,
                             'LF_Rank': int(front_data['LF_Rank']),
                             'RF_Rank': int(front_data['RF_Rank']),
                             'LR_Rank': int(rear_data['LR_Rank']),
@@ -1892,44 +1842,161 @@ with analysis_tab:
                             'Front_Score': front_data['Front_Weighted_Score'],
                             'Rear_Score': rear_data['Rear_Weighted_Score']
                         })
-                    else:
-                        row_cols[4].write("—")
-                        row_cols[5].write("—")
-                        row_cols[6].write("—")
-                        row_cols[7].write("—")
-                        row_cols[8].write("—")
-                        row_cols[9].write("—")
 
-                # After all selectboxes have rendered, detect duplicates and show warnings
-                front_clip_usage = {}
-                rear_clip_usage = {}
-                for center, selection in current_selections.items():
-                    front_clip = selection['front']
-                    rear_clip = selection['rear']
+                # Create dataframes
+                df_front_table = pd.DataFrame(front_table_data)
+                df_rear_table = pd.DataFrame(rear_table_data)
 
-                    if front_clip not in front_clip_usage:
-                        front_clip_usage[front_clip] = []
-                    front_clip_usage[front_clip].append(center)
+                # Calculate dynamic height based on number of rows (35px per row + 38px header)
+                num_rows = len(df_front_table)
+                table_height = min(35 * num_rows + 38, 600)  # Cap at 600px max
 
-                    if rear_clip not in rear_clip_usage:
-                        rear_clip_usage[rear_clip] = []
-                    rear_clip_usage[rear_clip].append(center)
+                # Detect duplicates
+                front_clip_counts = df_front_table['Front_Clip'].value_counts()
+                rear_clip_counts = df_rear_table['Rear_Clip'].value_counts()
+                front_duplicates = set(front_clip_counts[front_clip_counts > 1].index)
+                rear_duplicates = set(rear_clip_counts[rear_clip_counts > 1].index)
 
-                # Display duplicate warnings below the selectboxes
-                for center in sorted_centers:
-                    selection = current_selections[center]
-                    row_cols = selection['row_cols']
+                # Front Table
+                with table_cols[0]:
+                    st.markdown("**Front Clip Selection**")
 
-                    is_front_duplicate = len(front_clip_usage.get(selection['front'], [])) > 1
-                    is_rear_duplicate = len(rear_clip_usage.get(selection['rear'], [])) > 1
+                    # Editable dataframe with progress bars
+                    edited_front = st.data_editor(
+                        df_front_table,
+                        use_container_width=True,
+                        hide_index=True,
+                        height=table_height,
+                        column_config={
+                            "Track_Type": st.column_config.SelectboxColumn(
+                                "Track",
+                                options=['INT', 'ST', 'RC', 'Utility', 'SSW', 'Backup'],
+                                required=True
+                            ),
+                            "Center_Section": st.column_config.TextColumn(
+                                "Center",
+                                disabled=True
+                            ),
+                            "Front_Clip": st.column_config.SelectboxColumn(
+                                "Front Clip",
+                                options=all_front_clips,
+                                required=True
+                            ),
+                            "LF_Length": st.column_config.ProgressColumn(
+                                "LF Length",
+                                format="%.3f",
+                                min_value=df_front_table['LF_Length'].min(),
+                                max_value=df_front_table['LF_Length'].max()
+                            ),
+                            "RF_Length": st.column_config.ProgressColumn(
+                                "RF Length",
+                                format="%.3f",
+                                min_value=df_front_table['RF_Length'].min(),
+                                max_value=df_front_table['RF_Length'].max()
+                            ),
+                            "LF_Rank": st.column_config.TextColumn(
+                                "LF",
+                                disabled=True
+                            ),
+                            "RF_Rank": st.column_config.TextColumn(
+                                "RF",
+                                disabled=True
+                            ),
+                            "Front_Rank": st.column_config.TextColumn(
+                                "Front",
+                                disabled=True
+                            )
+                        },
+                        key='front_table_editor'
+                    )
 
-                    with row_cols[2]:
-                        if is_front_duplicate:
-                            st.markdown("<span style='color: red; font-size: 11px;'>⚠️ Duplicate</span>", unsafe_allow_html=True)
+                    # Check if any changes were made and update session state
+                    changes_made = False
+                    for idx, row in edited_front.iterrows():
+                        center = row['Center_Section']
+                        new_front_clip = row['Front_Clip']
+                        new_track_type = row['Track_Type']
 
-                    with row_cols[3]:
-                        if is_rear_duplicate:
-                            st.markdown("<span style='color: red; font-size: 11px;'>⚠️ Duplicate</span>", unsafe_allow_html=True)
+                        if st.session_state['lineup_assignments'][center]['front_clip'] != new_front_clip:
+                            st.session_state['manual_order_mode'] = True
+                            st.session_state['lineup_assignments'][center]['front_clip'] = new_front_clip
+                            changes_made = True
+
+                        if st.session_state['track_types'][center] != new_track_type:
+                            st.session_state['track_types'][center] = new_track_type
+                            changes_made = True
+
+                # Rear Table
+                with table_cols[1]:
+                    st.markdown("**Rear Clip Selection**")
+
+                    # Editable dataframe with progress bars
+                    edited_rear = st.data_editor(
+                        df_rear_table,
+                        use_container_width=True,
+                        hide_index=True,
+                        height=table_height,
+                        column_config={
+                            "Center_Section": st.column_config.TextColumn(
+                                "Center",
+                                disabled=True
+                            ),
+                            "Rear_Clip": st.column_config.SelectboxColumn(
+                                "Rear Clip",
+                                options=all_rear_clips,
+                                required=True
+                            ),
+                            "LR_Length": st.column_config.ProgressColumn(
+                                "LR Length",
+                                format="%.3f",
+                                min_value=df_rear_table['LR_Length'].min(),
+                                max_value=df_rear_table['LR_Length'].max()
+                            ),
+                            "RR_Length": st.column_config.ProgressColumn(
+                                "RR Length",
+                                format="%.3f",
+                                min_value=df_rear_table['RR_Length'].min(),
+                                max_value=df_rear_table['RR_Length'].max()
+                            ),
+                            "LR_Rank": st.column_config.TextColumn(
+                                "LR",
+                                disabled=True
+                            ),
+                            "RR_Rank": st.column_config.TextColumn(
+                                "RR",
+                                disabled=True
+                            ),
+                            "Rear_Rank": st.column_config.TextColumn(
+                                "Rear",
+                                disabled=True
+                            )
+                        },
+                        key='rear_table_editor'
+                    )
+
+                    # Check if any changes were made and update session state
+                    for idx, row in edited_rear.iterrows():
+                        center = row['Center_Section']
+                        new_rear_clip = row['Rear_Clip']
+
+                        if st.session_state['lineup_assignments'][center]['rear_clip'] != new_rear_clip:
+                            st.session_state['manual_order_mode'] = True
+                            st.session_state['lineup_assignments'][center]['rear_clip'] = new_rear_clip
+                            changes_made = True
+
+                # If changes were made, trigger rerun to refresh the table with updated data
+                if changes_made:
+                    st.rerun()
+
+                # Show duplicate warning summary if any exist
+                if front_duplicates or rear_duplicates:
+                    st.markdown("")
+                    warning_parts = []
+                    if front_duplicates:
+                        warning_parts.append(f"Front: {', '.join(front_duplicates)}")
+                    if rear_duplicates:
+                        warning_parts.append(f"Rear: {', '.join(rear_duplicates)}")
+                    st.warning(f"⚠️ Duplicate clips detected - {' | '.join(warning_parts)}")
 
                 lineup_df = pd.DataFrame(lineup_results)
 
