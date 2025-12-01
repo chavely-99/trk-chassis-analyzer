@@ -9,7 +9,12 @@ import plotly.express as px
 st.set_page_config(
     page_title="TRK Chassis Analyzer",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="collapsed",
+    menu_items={
+        'Get Help': None,
+        'Report a bug': None,
+        'About': None
+    }
 )
 
 # Reduce top padding and margins
@@ -18,12 +23,6 @@ st.markdown("""
         .block-container {
             padding-top: 1rem;
             padding-bottom: 0rem;
-        }
-        header {
-            visibility: hidden;
-        }
-        #MainMenu {
-            visibility: hidden;
         }
         footer {
             visibility: hidden;
