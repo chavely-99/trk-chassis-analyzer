@@ -2028,6 +2028,21 @@ with analysis_tab:
                 # Build What If tables
                 whatif_cols = st.columns([1, 1])
 
+                # Build assignment tracking for all center sections
+                all_front_assignments = {}
+                all_rear_assignments = {}
+                for cs in sorted_centers:
+                    assigned_front = st.session_state['lineup_assignments'][cs]['front_clip']
+                    assigned_rear = st.session_state['lineup_assignments'][cs]['rear_clip']
+
+                    if assigned_front not in all_front_assignments:
+                        all_front_assignments[assigned_front] = []
+                    all_front_assignments[assigned_front].append(cs)
+
+                    if assigned_rear not in all_rear_assignments:
+                        all_rear_assignments[assigned_rear] = []
+                    all_rear_assignments[assigned_rear].append(cs)
+
                 # Front What If Table
                 with whatif_cols[0]:
                     st.markdown(f"**Front Clips** (Current: {current_front_clip})")
@@ -2047,8 +2062,19 @@ with analysis_tab:
                             lf_indicator = "🟢" if lf_delta > 0 else ("🔴" if lf_delta < 0 else "⚪")
                             rf_indicator = "🟢" if rf_delta > 0 else ("🔴" if rf_delta < 0 else "⚪")
 
+                            # Check if clip is assigned to another center
+                            if clip in all_front_assignments:
+                                assigned_centers = [cs for cs in all_front_assignments[clip] if cs != whatif_center]
+                                if assigned_centers:
+                                    assigned_to = f"✗ {assigned_centers[0]}"
+                                else:
+                                    assigned_to = "✓"
+                            else:
+                                assigned_to = "✓"
+
                             front_whatif_data.append({
                                 'Clip': clip,
+                                'Available': assigned_to,
                                 'LF Δ': f"{lf_indicator} {lf_delta:+.3f}",
                                 'RF Δ': f"{rf_indicator} {rf_delta:+.3f}"
                             })
@@ -2084,8 +2110,19 @@ with analysis_tab:
                             lr_indicator = "🟢" if lr_delta > 0 else ("🔴" if lr_delta < 0 else "⚪")
                             rr_indicator = "🟢" if rr_delta > 0 else ("🔴" if rr_delta < 0 else "⚪")
 
+                            # Check if clip is assigned to another center
+                            if clip in all_rear_assignments:
+                                assigned_centers = [cs for cs in all_rear_assignments[clip] if cs != whatif_center]
+                                if assigned_centers:
+                                    assigned_to = f"✗ {assigned_centers[0]}"
+                                else:
+                                    assigned_to = "✓"
+                            else:
+                                assigned_to = "✓"
+
                             rear_whatif_data.append({
                                 'Clip': clip,
+                                'Available': assigned_to,
                                 'LR Δ': f"{lr_indicator} {lr_delta:+.3f}",
                                 'RR Δ': f"{rr_indicator} {rr_delta:+.3f}"
                             })
