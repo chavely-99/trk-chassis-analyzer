@@ -8,7 +8,7 @@ import plotly.express as px
 
 st.set_page_config(
     page_title="TRK Chassis Analyzer",
-    page_icon=r"C:\Users\chavely\OneDrive - Trackhouse Entertainment Group, LLC\Documents\TRK\General\Python\TH_FullLogo_White.png",
+    page_icon="TH_FullLogo_White.png",
     layout="wide",
     initial_sidebar_state="collapsed",
     menu_items={
